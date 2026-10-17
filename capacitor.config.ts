@@ -1,0 +1,1 @@
+import type { CapacitorConfig } from '@capacitor/cli'; const config: CapacitorConfig={appId:'com.titan.system',appName:'TITAN SYSTEM',webDir:'dist'}; export default config;
