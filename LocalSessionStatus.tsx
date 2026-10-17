@@ -1,6 +1,6 @@
 import React from 'react';
 import { ShieldCheck, CheckCircle2, Clock, CheckSquare, Sparkles } from 'lucide-react';
-import { LocalSessionInfo } from '../types';
+import type { LocalSessionInfo } from '../types';
 
 interface LocalSessionStatusProps {
   sessionInfo: LocalSessionInfo;

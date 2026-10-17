@@ -1,14 +1,268 @@
-import {useState} from 'react';
-import {ShieldCheck,Zap,Headphones,ChevronRight,Menu,X,Send,Gamepad2,CircleHelp} from 'lucide-react';
-type Category='Account support'|'Technical issue'|'General question';
-export default function App(){
- const [open,setOpen]=useState(false),[uid,setUid]=useState(''),[category,setCategory]=useState<Category>('Account support'),[details,setDetails]=useState(''),[notice,setNotice]=useState('');
- function submit(e:React.FormEvent<HTMLFormElement>){e.preventDefault();if(!details.trim()){setNotice('Please describe your issue first.');return;}setNotice('Request prepared locally. Connect a secure support backend before live submissions.');}
- return <div className="shell" id="home"><header className="top"><a className="brand" href="#home"><span className="mark"><ShieldCheck/></span><span>TITAN<span className="red">.</span><small>SYSTEM</small></span></a><button className="hamb" onClick={()=>setOpen(!open)} aria-label="Menu">{open?<X/>:<Menu/>}</button><nav className={open?'nav show':'nav'}><a href="#features" onClick={()=>setOpen(false)}>Features</a><a href="#support" onClick={()=>setOpen(false)}>Support</a><a href="#faq" onClick={()=>setOpen(false)}>FAQ</a><a className="navbutton" href="#support" onClick={()=>setOpen(false)}>Get Support <ChevronRight size={16}/></a></nav></header>
- <main><section className="hero"><div><div className="eyebrow"><i/> GAMING SUPPORT PORTAL</div><h1>WELCOME TO<br/>THE <b>TITAN</b><br/>WORLD.</h1><p className="lead">A focused hub for gaming support, account guidance, and technical help — built for the community.</p><div className="actions"><a className="btn primary" href="#support">Open a support request <ChevronRight size={17}/></a><a className="btn ghost" href="#features">Explore portal</a></div><div className="trust"><span><ShieldCheck/> Privacy-minded</span><span><Zap/> Clear guidance</span><span><Headphones/> Community support</span></div></div><div className="visual"><div className="orbit one"/><div className="orbit two"/><div className="bigshield"><ShieldCheck size={95}/></div><span className="label topLabel">● SYSTEM PORTAL</span><span className="label bottomLabel">TITAN / COMMUNITY</span><span className="cross">+</span></div></section>
- <div className="stats"><div><b>01</b> Clear guidance</div><div><b>02</b> Secure by design</div><div><b>03</b> Community first</div></div>
- <section className="section" id="features"><div className="eyebrow">WHAT YOU'LL FIND HERE</div><h2>Built for players.<br/><b>Designed for clarity.</b></h2><div className="cards"><article><span className="icon"><ShieldCheck/></span><h3>Account guidance</h3><p>Find the right official support path for account access, restrictions, and recovery questions.</p><small>01 / SUPPORT</small></article><article><span className="icon"><Gamepad2/></span><h3>Gaming community</h3><p>A clean place to find helpful information and organize your support request.</p><small>02 / COMMUNITY</small></article><article><span className="icon"><CircleHelp/></span><h3>Technical help</h3><p>Describe app or device issues and follow appropriate troubleshooting steps.</p><small>03 / TECH</small></article></div></section>
- <section className="support" id="support"><div><div className="eyebrow">SUPPORT DESK / 01</div><h2>Let's get your<br/><b>issue understood.</b></h2><p>Prepare a support request below. This demo does not send or store your details; a secure backend is needed for live submissions.</p><div className="safe"><ShieldCheck/><span><strong>Stay safe</strong><br/>Never share your password, OTP, or recovery codes.</span></div></div><form onSubmit={submit}><div className="formhead">NEW REQUEST <span>TS—001</span></div><label htmlFor="uid">Player ID / reference (optional)</label><input id="uid" value={uid} onChange={e=>setUid(e.target.value)} placeholder="Enter player ID or reference" maxLength={40}/><label htmlFor="category">Request category</label><select id="category" value={category} onChange={e=>setCategory(e.target.value as Category)}><option>Account support</option><option>Technical issue</option><option>General question</option></select><label htmlFor="details">Describe the issue</label><textarea id="details" value={details} onChange={e=>setDetails(e.target.value)} placeholder="Describe what happened. Do not include passwords or OTPs." rows={4} maxLength={1200} required/><button className="btn primary send" type="submit"><Send size={16}/> Prepare request</button>{notice&&<p className="notice" role="status">{notice}</p>}<p className="disclaimer">Demo only. This form does not contact a publisher or remove account restrictions.</p></form></section>
- <section className="section faq" id="faq"><div className="eyebrow">GOOD TO KNOW</div><h2>Quick answers.</h2><details><summary>Can TITAN SYSTEM directly unban a game account?</summary><p>No. Only the game's official publisher/support team can review restrictions. This portal does not bypass bans or promise an unban.</p></details><details><summary>Does this demo send my form anywhere?</summary><p>No. The current form only displays a local confirmation. A secure backend and privacy notice are needed before accepting real requests.</p></details><details><summary>What should I never share?</summary><p>Never share passwords, OTPs, recovery codes, or payment details in a support request.</p></details></section></main>
- <footer><a className="brand" href="#home"><span className="mark"><ShieldCheck/></span><span>TITAN<span className="red">.</span><small>SYSTEM</small></span></a><p>Independent community portal. Not affiliated with any game publisher.</p><small>© {new Date().getFullYear()} TITAN SYSTEM</small></footer></div>
+import React, { useState, useEffect, useCallback } from 'react';
+import { Header } from './components/Header';
+import { HeroSection } from './components/HeroSection';
+import { PlayerIdentityCard } from './components/PlayerIdentityCard';
+import { LiveCodeStream } from './components/LiveCodeStream';
+import { LocalSessionStatus } from './components/LocalSessionStatus';
+import { CountdownPanel } from './components/CountdownPanel';
+import { UidValidator } from './components/UidValidator';
+import { ScreenshotSelector } from './components/ScreenshotSelector';
+import { MusicPlayer } from './components/MusicPlayer';
+import { AccountSafety } from './components/AccountSafety';
+import { AndroidApkModal } from './components/AndroidApkModal';
+import type { TerminalLog, LogLevel, LocalSessionInfo, ScreenshotData } from './types';
+import { cyberSynth } from './audio/synthAudio';
+
+export default function App() {
+  const [scanlinesEnabled, setScanlinesEnabled] = useState(true);
+  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
+  const [showApkModal, setShowApkModal] = useState(false);
+  const [musicPlaying, setMusicPlaying] = useState(false);
+  const [musicSource, setMusicSource] = useState<'synth' | 'custom'>('synth');
+
+  // Submission & Sequence Activation States (Initial state: idle, not running)
+  const [isSubmitted, setIsSubmitted] = useState<boolean>(false);
+  const [submittedUid, setSubmittedUid] = useState<string>('');
+  const [activeUid, setActiveUid] = useState<string>('');
+  const [isSequenceActive, setIsSequenceActive] = useState<boolean>(false);
+  const [isCountdownActive, setIsCountdownActive] = useState<boolean>(false);
+
+  const [screenshotData, setScreenshotData] = useState<ScreenshotData>({
+    file: null,
+    previewUrl: null,
+    fileName: '',
+    fileSizeFormatted: '',
+    fileType: '',
+    uploadTimestamp: '',
+  });
+
+  const [sessionInfo, setSessionInfo] = useState<LocalSessionInfo>({
+    sessionActive: true,
+    uidStatus: 'WAITING_INPUT',
+    screenshotStatus: 'NO_IMAGE',
+    musicStatus: 'DISABLED',
+    lastAction: 'TITAN interface loaded. Standby for form submission.',
+    lastActionTimestamp: new Date().toLocaleTimeString(),
+    initializationTime: new Date().toLocaleTimeString(),
+  });
+
+  // Track online/offline status
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  // Central session action dispatcher
+  const logSessionAction = useCallback((message: string) => {
+    const timestamp = new Date().toLocaleTimeString();
+    setSessionInfo((prev) => ({
+      ...prev,
+      lastAction: message,
+      lastActionTimestamp: timestamp,
+    }));
+  }, []);
+
+  // Form submission handler:
+  // Starts the live code animation and cooldown countdown ONLY after successful submission
+  const handleFormSubmitted = (data: { uid: string; region: string; appealReason: string }) => {
+    setIsSubmitted(true);
+    setSubmittedUid(data.uid);
+    setActiveUid(data.uid);
+
+    // Start live code typewriter animation
+    setIsSequenceActive(true);
+
+    // Start cooldown countdown at that same moment
+    setIsCountdownActive(true);
+
+    setSessionInfo((prev) => ({
+      ...prev,
+      uidStatus: 'VALIDATED',
+      lastAction: `Unban form submitted for UID ${data.uid}. Sequence & 30-day countdown active.`,
+      lastActionTimestamp: new Date().toLocaleTimeString(),
+    }));
+  };
+
+  const handleFormClear = () => {
+    setIsSubmitted(false);
+    setSubmittedUid('');
+    setActiveUid('');
+    setIsSequenceActive(false);
+    setIsCountdownActive(false);
+
+    setSessionInfo((prev) => ({
+      ...prev,
+      uidStatus: 'WAITING_INPUT',
+      lastAction: 'Form cleared and reset to initial state.',
+      lastActionTimestamp: new Date().toLocaleTimeString(),
+    }));
+  };
+
+  // Screenshot handler
+  const handleSelectScreenshot = (data: ScreenshotData) => {
+    setScreenshotData(data);
+    setSessionInfo((prev) => ({
+      ...prev,
+      screenshotStatus: 'IMAGE_LOADED',
+      lastAction: `Loaded screenshot ${data.fileName}`,
+      lastActionTimestamp: new Date().toLocaleTimeString(),
+    }));
+  };
+
+  const handleRemoveScreenshot = () => {
+    setScreenshotData({
+      file: null,
+      previewUrl: null,
+      fileName: '',
+      fileSizeFormatted: '',
+      fileType: '',
+      uploadTimestamp: '',
+    });
+    setSessionInfo((prev) => ({
+      ...prev,
+      screenshotStatus: 'NO_IMAGE',
+      lastAction: 'Screenshot removed from workspace.',
+      lastActionTimestamp: new Date().toLocaleTimeString(),
+    }));
+  };
+
+  // Music handlers
+  const handlePlayStateChange = (playing: boolean, source: 'synth' | 'custom') => {
+    setMusicPlaying(playing);
+    setMusicSource(source);
+
+    setSessionInfo((prev) => ({
+      ...prev,
+      musicStatus: playing
+        ? source === 'synth'
+          ? 'SYNTH_ACTIVE'
+          : 'FILE_PLAYING'
+        : 'PAUSED',
+      lastAction: playing ? `Background audio active (${source})` : 'Background audio paused',
+      lastActionTimestamp: new Date().toLocaleTimeString(),
+    }));
+  };
+
+  // Header quick music toggle
+  const handleQuickMusicToggle = () => {
+    if (musicPlaying) {
+      cyberSynth.stop();
+      handlePlayStateChange(false, musicSource);
+      logSessionAction('Quick toggle: Background music stopped.');
+    } else {
+      try {
+        cyberSynth.start();
+        handlePlayStateChange(true, 'synth');
+        logSessionAction('Quick toggle: TITAN synth track started.');
+      } catch (err) {
+        logSessionAction('Quick toggle: Audio playback requires user interaction.');
+      }
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-[#030712] text-slate-100 flex flex-col relative selection:bg-cyan-500/40 selection:text-cyan-200">
+      {/* Optional CRT Scanlines Effect */}
+      {scanlinesEnabled && (
+        <div className="scanlines-overlay fixed inset-0 z-30 pointer-events-none opacity-40" />
+      )}
+
+      {/* Cyber Grid Texture */}
+      <div className="cyber-grid fixed inset-0 pointer-events-none opacity-25 z-0" />
+
+      {/* Top Header */}
+      <Header
+        scanlinesEnabled={scanlinesEnabled}
+        onToggleScanlines={() => setScanlinesEnabled(!scanlinesEnabled)}
+        musicPlaying={musicPlaying}
+        onToggleMusic={handleQuickMusicToggle}
+        onOpenApkModal={() => setShowApkModal(true)}
+        isOnline={isOnline}
+      />
+
+      {/* Main Layout Container */}
+      <main className="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-5 lg:p-6 space-y-5 sm:space-y-6 relative z-10">
+        {/* 1. Hero Section: TITAN UNBAN SYSTEM ACTIVATED */}
+        <HeroSection sessionActive={sessionInfo.sessionActive} activeUid={submittedUid || activeUid} />
+
+        {/* 2. Player Identity & Local Display Card */}
+        <PlayerIdentityCard activeUid={submittedUid || activeUid} />
+
+        {/* 3. Dual Terminal Panels: LIVE CODE STREAM & LOCAL SESSION STATUS */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 items-stretch">
+          <LiveCodeStream isSequenceActive={isSequenceActive} />
+          <LocalSessionStatus
+            sessionInfo={sessionInfo}
+            isSubmitted={isSubmitted}
+            submittedUid={submittedUid}
+          />
+        </div>
+
+        {/* 4. 30-Day Reminder Countdown Panel (Idle on load, starts only after submission) */}
+        <CountdownPanel
+          isActive={isCountdownActive}
+          onResetTimer={() => logSessionAction('30-Day reminder countdown reset by user.')}
+        />
+
+        {/* 5. UID Analysis & Submission Form Section */}
+        <UidValidator
+          onFormSubmitted={handleFormSubmitted}
+          onClear={handleFormClear}
+          onAddLog={(_level, msg) => logSessionAction(msg)}
+          isSubmitted={isSubmitted}
+          submittedUid={submittedUid}
+        />
+
+        {/* 6. Screenshot Selector Section */}
+        <ScreenshotSelector
+          screenshot={screenshotData}
+          onSelectScreenshot={handleSelectScreenshot}
+          onRemoveScreenshot={handleRemoveScreenshot}
+          onAddLog={(_level, msg) => logSessionAction(msg)}
+        />
+
+        {/* 7. Background Music Controls */}
+        <MusicPlayer
+          isPlaying={musicPlaying}
+          onPlayStateChange={handlePlayStateChange}
+          onAddLog={(_level, msg) => logSessionAction(msg)}
+        />
+
+        {/* 8. Account Information & Safety Section */}
+        <AccountSafety />
+      </main>
+
+      {/* Footer */}
+      <footer className="mt-8 border-t border-cyan-500/20 bg-[#02050e] py-5 px-4 text-center text-xs font-terminal text-slate-500 relative z-10">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-cyan-400">
+            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+            <span className="font-bold tracking-wider">TITAN UNBAN SYSTEM · LOCAL WORKSTATION</span>
+          </div>
+
+          <p className="text-slate-400 text-[11px]">
+            Simulated visual interface · Zero credentials stored · Independent appeal companion
+          </p>
+
+          <button
+            onClick={() => setShowApkModal(true)}
+            className="text-cyan-400 hover:text-cyan-300 underline text-xs"
+          >
+            Android APK Instructions
+          </button>
+        </div>
+      </footer>
+
+      {/* Android APK Modal */}
+      <AndroidApkModal isOpen={showApkModal} onClose={() => setShowApkModal(false)} />
+    </div>
+  );
 }

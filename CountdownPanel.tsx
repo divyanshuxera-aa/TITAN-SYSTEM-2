@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Clock, RotateCcw, Calendar, Info, Play, ShieldAlert } from 'lucide-react';
-import { CountdownTime } from '../types';
+import type { CountdownTime } from '../types';
 
 interface CountdownPanelProps {
   isActive: boolean;

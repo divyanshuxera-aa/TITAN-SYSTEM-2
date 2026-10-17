@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ShieldAlert, CheckCircle, Sliders, Send, RotateCcw, AlertCircle, Globe, FileText, Check } from 'lucide-react';
-import { UidAnalysisResult } from '../types';
+import type { UidAnalysisResult } from '../types';
 
 interface UidValidatorProps {
   onFormSubmitted: (data: { uid: string; region: string; appealReason: string }) => void;

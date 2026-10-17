@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { Image as ImageIcon, Upload, Trash2, Maximize2, AlertTriangle, FileCheck, RefreshCw, X } from 'lucide-react';
-import { ScreenshotData } from '../types';
+import type { ScreenshotData } from '../types';
 
 interface ScreenshotSelectorProps {
   screenshot: ScreenshotData;
