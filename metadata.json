@@ -1,0 +1,6 @@
+{
+  "name": "TITAN UNBAN SYSTEM",
+  "description": "TITAN.AI — Futuristic cyber-terminal interface for Free Fire UID validation, screenshot inspection, and local session safety diagnostics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
